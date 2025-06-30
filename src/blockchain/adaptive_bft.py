@@ -1,7 +1,7 @@
 import time
 import logging
 import numpy as np
-from .base_bft import PBFT_Simulator
+from blockchain.base_bft import PBFT_Simulator
 
 class NetworkStateOracle:
     """A simple smart contract simulation that holds the network's state."""
