@@ -1,5 +1,6 @@
 import time
 import random
+import logging
 
 class PBFT_Simulator:
     """A simple functional simulation of a PBFT-like consensus protocol."""
@@ -14,6 +15,7 @@ class PBFT_Simulator:
         Returns True if consensus is reached, False otherwise.
         """
         if not block_of_updates:
+            logging.warning("PBFT: Cannot run consensus on an empty block of updates.")
             return False # Cannot run consensus on an empty block
             
         # Simulate network latency
@@ -25,8 +27,8 @@ class PBFT_Simulator:
         
         # PBFT requires 2f+1 honest nodes to reach a quorum
         if num_honest_validators >= 2 * self.faulty_validators + 1:
-            # print(f"PBFT Consensus SUCCESS: Quorum reached ({num_honest_validators}/{self.num_validators}).")
+            logging.info(f"PBFT Consensus SUCCESS: Quorum reached ({num_honest_validators}/{self.num_validators}).")
             return True
         else:
-            # print(f"PBFT Consensus FAILED: Quorum not reached ({num_honest_validators}/{self.num_validators}).")
+            logging.warning(f"PBFT Consensus FAILED: Quorum not reached ({num_honest_validators}/{self.num_validators}).")
             return False

@@ -2,6 +2,7 @@ import torch
 from torchvision import datasets, transforms
 from torch.utils.data import Subset
 import numpy as np
+import logging
 
 # Import our custom components
 from fl_components.base_fl import SimpleCNN, FedAvgClient, FedAvgServer
@@ -31,7 +32,7 @@ def prepare_data(num_clients):
     return client_datasets
 
 def run_baseline_1(num_clients, num_rounds, device):
-    print("\n--- Running Baseline 1: Standard BCFL ---")
+    logging.info("--- Running Baseline 1: Standard BCFL ---")
     
     # 1. Initialization
     client_datasets = prepare_data(num_clients)
@@ -42,7 +43,7 @@ def run_baseline_1(num_clients, num_rounds, device):
     
     # 2. Training Loop
     for round_num in range(num_rounds):
-        print(f"Round {round_num + 1}/{num_rounds}...")
+        logging.info(f"Round {round_num + 1}/{num_rounds}...")
         
         # Clients train locally
         local_updates = [client.train() for client in clients]
@@ -53,12 +54,12 @@ def run_baseline_1(num_clients, num_rounds, device):
         # If consensus reached, server aggregates
         if consensus_reached:
             server.aggregate_updates(local_updates)
-            print("   Consensus reached. Global model updated.")
+            logging.info("   Consensus reached. Global model updated.")
         else:
-            print("   Consensus failed. Global model not updated.")
+            logging.warning("   Consensus failed. Global model not updated.")
 
 def run_baseline_2(num_clients, num_rounds, device):
-    print("\n--- Running Baseline 2: Application-Layer Trust ---")
+    logging.info("--- Running Baseline 2: Application-Layer Trust ---")
     
     # 1. Initialization
     client_datasets = prepare_data(num_clients)
@@ -72,7 +73,7 @@ def run_baseline_2(num_clients, num_rounds, device):
     
     # 2. Training Loop
     for round_num in range(num_rounds):
-        print(f"Round {round_num + 1}/{num_rounds}...")
+        logging.info(f"Round {round_num + 1}/{num_rounds}...")
         
         local_updates = {cid: client.train() for cid, client in clients.items()}
         
@@ -81,12 +82,12 @@ def run_baseline_2(num_clients, num_rounds, device):
         if consensus_reached:
             # Here, the server executes application-layer logic after consensus
             server.reputation_weighted_aggregation(local_updates, reputations)
-            print("   Consensus reached. Reputation-weighted aggregation performed.")
+            logging.info("   Consensus reached. Reputation-weighted aggregation performed.")
         else:
-            print("   Consensus failed. Global model not updated.")
+            logging.warning("   Consensus failed. Global model not updated.")
 
 def run_baseline_3(num_clients, committee_size, num_rounds, device):
-    print("\n--- Running Baseline 3: Pre-Consensus Filtering ---")
+    logging.info("--- Running Baseline 3: Pre-Consensus Filtering ---")
     
     # 1. Initialization
     client_datasets = prepare_data(num_clients)
@@ -100,13 +101,13 @@ def run_baseline_3(num_clients, committee_size, num_rounds, device):
     
     # 2. Training Loop
     for round_num in range(num_rounds):
-        print(f"Round {round_num + 1}/{num_rounds}...")
+        logging.info(f"Round {round_num + 1}/{num_rounds}...")
         
         # --- Pre-Consensus Filtering Step ---
         # Select committee based on highest reputation
         sorted_clients = sorted(reputations.keys(), key=lambda k: reputations[k], reverse=True)
         committee_ids = sorted_clients[:committee_size]
-        print(f"   Selected committee of {committee_size} clients.")
+        logging.info(f"   Selected committee of {committee_size} clients: {', '.join(committee_ids)}")
         
         # Only committee members train
         committee_updates = [all_clients[cid].train() for cid in committee_ids]
@@ -116,14 +117,20 @@ def run_baseline_3(num_clients, committee_size, num_rounds, device):
         
         if consensus_reached:
             server.aggregate_updates(committee_updates)
-            print("   Consensus reached. Global model updated by committee.")
+            logging.info("   Consensus reached. Global model updated by committee.")
         else:
-            print("   Consensus failed. Global model not updated.")
+            logging.warning("   Consensus failed. Global model not updated.")
             
 if __name__ == '__main__':
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+    )
+
     # Set device to GPU if available, otherwise CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    logging.info(f"Using device: {device}")
 
     NUM_CLIENTS = 10
     NUM_ROUNDS = 3

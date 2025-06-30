@@ -3,6 +3,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 import copy
+import logging
 
 # --- Model Definition (Simple CNN for CIFAR-10) ---
 class SimpleCNN(nn.Module):
@@ -40,8 +41,12 @@ class FedAvgClient:
         self.criterion = nn.CrossEntropyLoss()
 
     def train(self):
+        logging.info(f"Client {self.client_id}: Starting training for {self.epochs} epochs.")
         self.model.train()
+        epoch_losses = []
         for epoch in range(self.epochs):
+            running_loss = 0.0
+            num_batches = 0
             for data, target in self.train_loader:
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
@@ -49,7 +54,10 @@ class FedAvgClient:
                 loss = self.criterion(output, target)
                 loss.backward()
                 self.optimizer.step()
-        # Return the model's state dictionary (weights) on the CPU
+                running_loss += loss.item()
+                num_batches += 1
+            epoch_losses.append(running_loss / num_batches)
+        logging.info(f"Client {self.client_id}: Finished training. Avg loss: {sum(epoch_losses)/len(epoch_losses):.4f}")
         # This ensures compatibility for aggregation, regardless of the server's device.
         return {k: v.cpu() for k, v in self.model.state_dict().items()}
 
@@ -60,6 +68,7 @@ class FedAvgServer:
 
     def aggregate_updates(self, client_updates):
         """Standard FedAvg aggregation."""
+        logging.info(f"Server: Aggregating updates from {len(client_updates)} clients using FedAvg.")
         num_clients = len(client_updates)
         # Initialize a new state_dict with zeros
         aggregated_weights = copy.deepcopy(client_updates[0])
@@ -76,11 +85,14 @@ class FedAvgServer:
             aggregated_weights[key] = torch.div(aggregated_weights[key], num_clients)
         
         self.global_model.load_state_dict(aggregated_weights)
+        logging.info("Server: Standard aggregation complete. Global model updated.")
         return self.global_model.state_dict()
 
     def reputation_weighted_aggregation(self, client_updates, reputations):
         """Baseline 2: Application-layer trust weighted aggregation."""
-        aggregated_weights = copy.deepcopy(client_updates[0])
+        logging.info(f"Server: Performing reputation-weighted aggregation for {len(client_updates)} clients.")
+
+        aggregated_weights = copy.deepcopy(next(iter(client_updates.values())))
         total_rep_sum = sum(reputations.values())
         
         for key in aggregated_weights.keys():
@@ -93,4 +105,5 @@ class FedAvgServer:
                 aggregated_weights[key] += update[key] * rep_weight
                 
         self.global_model.load_state_dict(aggregated_weights)
+        logging.info("Server: Reputation-weighted aggregation complete. Global model updated.")
         return self.global_model.state_dict()
