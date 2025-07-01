@@ -40,13 +40,11 @@ class FedAvgClient:
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
         self.criterion = nn.CrossEntropyLoss()
 
-    def train(self):
+    # --- THIS IS THE LINE TO CHANGE ---
+    def train(self, current_round=None): # Add current_round=None here
         logging.info(f"Client {self.client_id}: Starting training for {self.epochs} epochs.")
         self.model.train()
-        epoch_losses = []
         for epoch in range(self.epochs):
-            running_loss = 0.0
-            num_batches = 0
             for data, target in self.train_loader:
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
@@ -54,11 +52,7 @@ class FedAvgClient:
                 loss = self.criterion(output, target)
                 loss.backward()
                 self.optimizer.step()
-                running_loss += loss.item()
-                num_batches += 1
-            epoch_losses.append(running_loss / num_batches)
-        logging.info(f"Client {self.client_id}: Finished training. Avg loss: {sum(epoch_losses)/len(epoch_losses):.4f}")
-        # This ensures compatibility for aggregation, regardless of the server's device.
+        # Return model weights on the CPU for robust aggregation
         return {k: v.cpu() for k, v in self.model.state_dict().items()}
 
 # --- FL Server Definition ---
